@@ -1,20 +1,23 @@
 import pygame
 import os
 from tkinter import messagebox, Tk
+import random
 
 # Inicializa o pygame
 pygame.init()
 
 # Dimensões
-WIDTH, HEIGHT = 640, 640
+WIDTH, HEIGHT = 1000, 640  # Aumentado para comportar mini tabuleiros e menu
 ROWS, COLS = 8, 8
-SQUARE_SIZE = WIDTH // COLS
+SQUARE_SIZE = 640 // COLS
 
 # Cores
 WHITE = (255, 255, 255)
 GREEN = (118, 150, 86)
 BEIGE = (238, 238, 210)
 HIGHLIGHT = (255, 255, 0, 100)
+BLACK = (0, 0, 0)
+GRAY = (200, 200, 200)
 
 # Carrega imagens
 PIECE_IMAGES = {}
@@ -23,6 +26,12 @@ for piece in ['wp', 'wr', 'wn', 'wb', 'wq', 'wk',
     PIECE_IMAGES[piece] = pygame.transform.scale(
         pygame.image.load(os.path.join('pieces', piece + '.png')),
         (SQUARE_SIZE, SQUARE_SIZE)
+    )
+
+MINI_PIECE_IMAGES = {}
+for piece in PIECE_IMAGES:
+    MINI_PIECE_IMAGES[piece] = pygame.transform.scale(
+        PIECE_IMAGES[piece], (SQUARE_SIZE//3, SQUARE_SIZE//3)
     )
 
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -45,6 +54,8 @@ board = get_initial_board()
 selected = None
 turn = 'w'
 possible_moves = []
+mode = None
+
 
 def draw_board():
     for row in range(ROWS):
@@ -56,6 +67,7 @@ def draw_board():
         r, c = move
         pygame.draw.circle(WIN, (255, 255, 0), (c * SQUARE_SIZE + SQUARE_SIZE//2, r * SQUARE_SIZE + SQUARE_SIZE//2), 10)
 
+
 def draw_pieces():
     for row in range(ROWS):
         for col in range(COLS):
@@ -63,9 +75,11 @@ def draw_pieces():
             if piece != "":
                 WIN.blit(PIECE_IMAGES[piece], (col*SQUARE_SIZE, row*SQUARE_SIZE))
 
+
 def get_row_col_from_mouse(pos):
     x, y = pos
     return y // SQUARE_SIZE, x // SQUARE_SIZE
+
 
 def valid_moves(piece, start):
     row, col = start
@@ -118,6 +132,7 @@ def valid_moves(piece, start):
 
     return moves
 
+
 def check_victory():
     kings = {'w': False, 'b': False}
     for row in board:
@@ -132,12 +147,14 @@ def check_victory():
         return 'White wins!'
     return None
 
+
 def show_victory_message(message):
     root = Tk()
     root.withdraw()
     response = messagebox.askquestion("Game Over", f"{message}\nDo you want to play again?")
     root.destroy()
     return response == 'yes'
+
 
 def move_piece(start, end):
     global turn
@@ -153,15 +170,52 @@ def move_piece(start, end):
         return True
     return False
 
+
+def draw_mini_board(x_offset, y_offset, player_color):
+    for row in range(ROWS):
+        for col in range(COLS):
+            color = BEIGE if (row + col) % 2 == 0 else GREEN
+            square = pygame.Rect(x_offset + col*SQUARE_SIZE//3, y_offset + row*SQUARE_SIZE//3, SQUARE_SIZE//3, SQUARE_SIZE//3)
+            pygame.draw.rect(WIN, color, square)
+            piece = board[row][col]
+            if piece != "" and piece[0] == player_color:
+                WIN.blit(MINI_PIECE_IMAGES[piece], (x_offset + col*SQUARE_SIZE//3, y_offset + row*SQUARE_SIZE//3))
+
+
+def menu():
+    font = pygame.font.SysFont(None, 40)
+    WIN.fill(WHITE)
+    pvp_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 - 60, 200, 50)
+    ai_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 + 10, 200, 50)
+    pygame.draw.rect(WIN, GRAY, pvp_btn)
+    pygame.draw.rect(WIN, GRAY, ai_btn)
+    WIN.blit(font.render("Player vs Player", True, BLACK), (WIDTH//2 - 90, HEIGHT//2 - 45))
+    WIN.blit(font.render("Player vs AI", True, BLACK), (WIDTH//2 - 65, HEIGHT//2 + 25))
+    pygame.display.update()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if pvp_btn.collidepoint(event.pos):
+                    return 'pvp'
+                if ai_btn.collidepoint(event.pos):
+                    return 'ai'
+
+
 def main():
-    global selected, possible_moves, board, turn
+    global selected, possible_moves, board, turn, mode
     clock = pygame.time.Clock()
+    mode = menu()
     run = True
 
     while run:
         clock.tick(60)
         draw_board()
         draw_pieces()
+        draw_mini_board(660, 10, 'b')  # canto superior direito para o jogador preto
+        draw_mini_board(660, 330, 'w')  # canto inferior direito para o jogador branco
         pygame.display.update()
 
         winner = check_victory()
@@ -182,6 +236,8 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
+                if pos[0] >= WIDTH or pos[1] >= HEIGHT:
+                    continue
                 row, col = get_row_col_from_mouse(pos)
 
                 if selected:
@@ -193,6 +249,8 @@ def main():
                         if moved:
                             selected = None
                             possible_moves = []
+                            if mode == 'ai' and turn == 'b':
+                                ai_move()
                         else:
                             if board[row][col] != "" and board[row][col][0] == turn:
                                 selected = (row, col)
@@ -203,6 +261,21 @@ def main():
                         possible_moves = valid_moves(board[row][col], (row, col))
 
     pygame.quit()
+
+
+def ai_move():
+    global turn
+    # IA simples: move uma peça válida aleatória
+    possible_ai_moves = []
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] != "" and board[r][c][0] == 'b':
+                moves = valid_moves(board[r][c], (r, c))
+                for move in moves:
+                    possible_ai_moves.append(((r, c), move))
+    if possible_ai_moves:
+        start, end = random.choice(possible_ai_moves)
+        move_piece(start, end)
 
 if __name__ == "__main__":
     main()
