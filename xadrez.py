@@ -73,6 +73,12 @@ def draw_board():
             color = BEIGE if (row + col) % 2 == 0 else GREEN
             pygame.draw.rect(WIN, color, (col*SQUARE_SIZE, row*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
+    # Marcar a peça selecionada
+    if selected:
+        sel_row, sel_col = selected
+        pygame.draw.rect(WIN, (255, 255, 0), (sel_col*SQUARE_SIZE, sel_row*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE), 5)
+
+    # Desenhar círculos nos movimentos possíveis
     for move in possible_moves:
         r, c = move
         pygame.draw.circle(WIN, (255, 255, 0), (c * SQUARE_SIZE + SQUARE_SIZE//2, r * SQUARE_SIZE + SQUARE_SIZE//2), 10)
