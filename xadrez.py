@@ -302,19 +302,30 @@ def main():
 
 
 
+last_ai_moves = []  # Armazena últimos movimentos da IA para evitar repetições
+
 def ai_move(depth):
-    global turn
+    global turn, last_ai_moves
     if check_victory():
         return
 
     def evaluate_board():
-        piece_values = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 1000}
+        piece_values = {'p': 1, 'n': 3, 'b': 3.1, 'r': 5, 'q': 9, 'k': 1000}
+        center_squares = [(3,3), (3,4), (4,3), (4,4)]
         score = 0
-        for row in board:
-            for piece in row:
+        for r in range(8):
+            for c in range(8):
+                piece = board[r][c]
                 if piece != "":
                     value = piece_values.get(piece[1], 0)
-                    score += value if piece[0] == 'b' else -value
+                    positional_bonus = 0
+                    # Recompensa por controle do centro
+                    if (r, c) in center_squares:
+                        positional_bonus += 0.3
+                    # Bonus por avançar peões
+                    if piece[1] == 'p':
+                        positional_bonus += (r if piece[0] == 'b' else (7 - r)) * 0.05
+                    score += (value + positional_bonus) if piece[0] == 'b' else -(value + positional_bonus)
         return score
 
     def get_all_moves(color):
@@ -333,16 +344,19 @@ def ai_move(depth):
 
         color = 'b' if maximizing else 'w'
         best = None
+        move_list = get_all_moves(color)
         if maximizing:
             max_eval = float('-inf')
-            for move in get_all_moves(color):
-                backup = board[move[1][0]][move[1][1]]
-                piece = board[move[0][0]][move[0][1]]
-                board[move[1][0]][move[1][1]] = piece
-                board[move[0][0]][move[0][1]] = ""
+            for move in move_list:
+                sr, sc = move[0]
+                er, ec = move[1]
+                piece = board[sr][sc]
+                target = board[er][ec]
+                board[er][ec] = piece
+                board[sr][sc] = ""
                 eval, _ = minimax(depth - 1, alpha, beta, False)
-                board[move[0][0]][move[0][1]] = piece
-                board[move[1][0]][move[1][1]] = backup
+                board[sr][sc] = piece
+                board[er][ec] = target
                 if eval > max_eval:
                     max_eval = eval
                     best = move
@@ -352,14 +366,16 @@ def ai_move(depth):
             return max_eval, best
         else:
             min_eval = float('inf')
-            for move in get_all_moves(color):
-                backup = board[move[1][0]][move[1][1]]
-                piece = board[move[0][0]][move[0][1]]
-                board[move[1][0]][move[1][1]] = piece
-                board[move[0][0]][move[0][1]] = ""
+            for move in move_list:
+                sr, sc = move[0]
+                er, ec = move[1]
+                piece = board[sr][sc]
+                target = board[er][ec]
+                board[er][ec] = piece
+                board[sr][sc] = ""
                 eval, _ = minimax(depth - 1, alpha, beta, True)
-                board[move[0][0]][move[0][1]] = piece
-                board[move[1][0]][move[1][1]] = backup
+                board[sr][sc] = piece
+                board[er][ec] = target
                 if eval < min_eval:
                     min_eval = eval
                     best = move
@@ -369,9 +385,26 @@ def ai_move(depth):
             return min_eval, best
 
     _, best = minimax(depth, float('-inf'), float('inf'), True)
+
     if best:
+        # Evita repetir a mesma jogada como torre indo e voltando
+        if best in last_ai_moves[-2:]:
+            print("IA evitando repetição.")
+            # Tenta forçar desenvolvimento de peão
+            for r in range(8):
+                for c in range(8):
+                    if board[r][c] == 'bp':
+                        for move in valid_moves('bp', (r, c)):
+                            if move_piece((r, c), move):
+                                last_ai_moves.append(((r, c), move))
+                                if len(last_ai_moves) > 4:
+                                    last_ai_moves = last_ai_moves[-4:]
+                                return
         print(f"IA move: {best}")
         move_piece(*best)
+        last_ai_moves.append(best)
+        if len(last_ai_moves) > 4:
+            last_ai_moves = last_ai_moves[-4:]
     else:
         print("IA sem movimentos válidos.")
         winner = check_victory()
