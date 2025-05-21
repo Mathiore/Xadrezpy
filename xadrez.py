@@ -56,6 +56,16 @@ turn = 'w'
 possible_moves = []
 mode = None
 
+PIECE_VALUES = {
+    'p': 10,
+    'n': 30,
+    'b': 30,
+    'r': 50,
+    'q': 90,
+    'k': 900
+}
+
+
 
 def draw_board():
     for row in range(ROWS):
@@ -185,13 +195,15 @@ def draw_mini_board(x_offset, y_offset, player_color):
 def menu():
     font = pygame.font.SysFont(None, 40)
     WIN.fill(WHITE)
-    pvp_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 - 60, 200, 50)
-    ai_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 + 10, 200, 50)
+
+    pvp_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 - 120, 200, 50)
+    ai_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 - 60, 200, 50)
     pygame.draw.rect(WIN, GRAY, pvp_btn)
     pygame.draw.rect(WIN, GRAY, ai_btn)
-    WIN.blit(font.render("Player vs Player", True, BLACK), (WIDTH//2 - 90, HEIGHT//2 - 45))
-    WIN.blit(font.render("Player vs AI", True, BLACK), (WIDTH//2 - 65, HEIGHT//2 + 25))
+    WIN.blit(font.render("Player vs Player", True, BLACK), (WIDTH//2 - 90, HEIGHT//2 - 105))
+    WIN.blit(font.render("Player vs AI", True, BLACK), (WIDTH//2 - 65, HEIGHT//2 - 45))
     pygame.display.update()
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -199,15 +211,38 @@ def menu():
                 exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if pvp_btn.collidepoint(event.pos):
-                    return 'pvp'
+                    return 'pvp', None
                 if ai_btn.collidepoint(event.pos):
-                    return 'ai'
+                    return difficulty_menu()
+
+def difficulty_menu():
+    font = pygame.font.SysFont(None, 40)
+    WIN.fill(WHITE)
+
+    easy_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 - 60, 200, 50)
+    hard_btn = pygame.Rect(WIDTH//2 - 100, HEIGHT//2 + 10, 200, 50)
+    pygame.draw.rect(WIN, GRAY, easy_btn)
+    pygame.draw.rect(WIN, GRAY, hard_btn)
+    WIN.blit(font.render("Médio (Depth 2)", True, BLACK), (WIDTH//2 - 90, HEIGHT//2 - 45))
+    WIN.blit(font.render("Difícil (Depth 3)", True, BLACK), (WIDTH//2 - 90, HEIGHT//2 + 25))
+    pygame.display.update()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if easy_btn.collidepoint(event.pos):
+                    return 'ai', 2
+                if hard_btn.collidepoint(event.pos):
+                    return 'ai', 3
 
 
 def main():
     global selected, possible_moves, board, turn, mode
     clock = pygame.time.Clock()
-    mode = menu()
+    mode, ai_depth = menu()
     run = True
 
     while run:
@@ -230,6 +265,9 @@ def main():
                 run = False
                 continue
 
+        if mode == 'ai' and turn == 'b':
+            ai_move(ai_depth)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -249,12 +287,6 @@ def main():
                         if moved:
                             selected = None
                             possible_moves = []
-                            if mode == 'ai' and turn == 'b':
-                                ai_move()
-                        else:
-                            if board[row][col] != "" and board[row][col][0] == turn:
-                                selected = (row, col)
-                                possible_moves = valid_moves(board[row][col], (row, col))
                 else:
                     if board[row][col] != "" and board[row][col][0] == turn:
                         selected = (row, col)
@@ -263,43 +295,82 @@ def main():
     pygame.quit()
 
 
-def ai_move():
+
+def ai_move(depth):
     global turn
-    target_king_pos = None
-    for r in range(8):
-        for c in range(8):
-            if board[r][c] == 'wk':
-                target_king_pos = (r, c)
-
-    best_capture = None
-    for r in range(8):
-        for c in range(8):
-            if board[r][c] != "" and board[r][c][0] == 'b':
-                moves = valid_moves(board[r][c], (r, c))
-                for move in moves:
-                    tr, tc = move
-                    target_piece = board[tr][tc]
-                    if move == target_king_pos:
-                        move_piece((r, c), move)
-                        return
-                    if target_piece != "" and target_piece[0] == 'w':
-                        best_capture = ((r, c), move)
-
-    if best_capture:
-        move_piece(*best_capture)
+    if check_victory():
         return
 
-    # Se nenhuma captura, fazer movimento aleatório
-    possible_ai_moves = []
-    for r in range(8):
-        for c in range(8):
-            if board[r][c] != "" and board[r][c][0] == 'b':
-                moves = valid_moves(board[r][c], (r, c))
-                for move in moves:
-                    possible_ai_moves.append(((r, c), move))
-    if possible_ai_moves:
-        start, end = random.choice(possible_ai_moves)
-        move_piece(start, end)
+    def evaluate_board():
+        piece_values = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 1000}
+        score = 0
+        for row in board:
+            for piece in row:
+                if piece != "":
+                    value = piece_values.get(piece[1], 0)
+                    score += value if piece[0] == 'b' else -value
+        return score
+
+    def get_all_moves(color):
+        moves = []
+        for r in range(8):
+            for c in range(8):
+                piece = board[r][c]
+                if piece != "" and piece[0] == color:
+                    for move in valid_moves(piece, (r, c)):
+                        moves.append(((r, c), move))
+        return moves
+
+    def minimax(depth, alpha, beta, maximizing):
+        if depth == 0 or check_victory():
+            return evaluate_board(), None
+
+        color = 'b' if maximizing else 'w'
+        best = None
+        if maximizing:
+            max_eval = float('-inf')
+            for move in get_all_moves(color):
+                backup = board[move[1][0]][move[1][1]]
+                piece = board[move[0][0]][move[0][1]]
+                board[move[1][0]][move[1][1]] = piece
+                board[move[0][0]][move[0][1]] = ""
+                eval, _ = minimax(depth - 1, alpha, beta, False)
+                board[move[0][0]][move[0][1]] = piece
+                board[move[1][0]][move[1][1]] = backup
+                if eval > max_eval:
+                    max_eval = eval
+                    best = move
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break
+            return max_eval, best
+        else:
+            min_eval = float('inf')
+            for move in get_all_moves(color):
+                backup = board[move[1][0]][move[1][1]]
+                piece = board[move[0][0]][move[0][1]]
+                board[move[1][0]][move[1][1]] = piece
+                board[move[0][0]][move[0][1]] = ""
+                eval, _ = minimax(depth - 1, alpha, beta, True)
+                board[move[0][0]][move[0][1]] = piece
+                board[move[1][0]][move[1][1]] = backup
+                if eval < min_eval:
+                    min_eval = eval
+                    best = move
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break
+            return min_eval, best
+
+    _, best = minimax(depth, float('-inf'), float('inf'), True)
+    if best:
+        print(f"IA move: {best}")
+        move_piece(*best)
+    else:
+        print("IA sem movimentos válidos.")
+        winner = check_victory()
+        if not winner:
+            turn = 'w'  # devolve o turno ao jogador humano
 
 
 if __name__ == "__main__":
