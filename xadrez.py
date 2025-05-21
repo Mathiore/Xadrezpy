@@ -214,8 +214,8 @@ def main():
         clock.tick(60)
         draw_board()
         draw_pieces()
-        draw_mini_board(660, 10, 'b')  # canto superior direito para o jogador preto
-        draw_mini_board(660, 330, 'w')  # canto inferior direito para o jogador branco
+        draw_mini_board(660, 10, 'b')
+        draw_mini_board(660, 330, 'w')
         pygame.display.update()
 
         winner = check_victory()
@@ -265,7 +265,31 @@ def main():
 
 def ai_move():
     global turn
-    # IA simples: move uma peça válida aleatória
+    target_king_pos = None
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] == 'wk':
+                target_king_pos = (r, c)
+
+    best_capture = None
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] != "" and board[r][c][0] == 'b':
+                moves = valid_moves(board[r][c], (r, c))
+                for move in moves:
+                    tr, tc = move
+                    target_piece = board[tr][tc]
+                    if move == target_king_pos:
+                        move_piece((r, c), move)
+                        return
+                    if target_piece != "" and target_piece[0] == 'w':
+                        best_capture = ((r, c), move)
+
+    if best_capture:
+        move_piece(*best_capture)
+        return
+
+    # Se nenhuma captura, fazer movimento aleatório
     possible_ai_moves = []
     for r in range(8):
         for c in range(8):
@@ -276,6 +300,7 @@ def ai_move():
     if possible_ai_moves:
         start, end = random.choice(possible_ai_moves)
         move_piece(start, end)
+
 
 if __name__ == "__main__":
     main()
