@@ -10,7 +10,7 @@ Um jogo de xadrez com interface gráfica feita em `pygame`, com modo de dois jog
 * 🔍 Destaca jogadas possíveis ao clicar em uma peça
 * 👑 Vitória ao capturar o Rei adversário
 * ⟳ Reiniciar jogo após vitória
-* 🔹 Mini tabuleiros com dicas para os dois jogadores
+* 🔹 Mini tabuleiros com dicas para os dois jogadores (Falta implementação)
 
 ## 💡 Como usar
 
