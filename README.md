@@ -70,9 +70,13 @@ Capturar o rei adversário! A IA vai tentar defender seu próprio rei e capturar
 
 A IA analisa:
 
-* Se pode capturar o rei inimigo, ela o faz.
-* Se pode capturar qualquer peça, ela o faz.
-* Caso contrário, faz uma jogada válida aleatória.
+A IA prioriza capturar o rei inimigo ou outra peça de maior valor.
+
+Se não há capturas vantajosas, ela tenta mover um peão aleatório.
+
+Só usa uma torre, bispo ou cavalo como último recurso, se não houver nenhum peão para mexer.
+
+
 
 ## 🔹 Recursos extras
 
